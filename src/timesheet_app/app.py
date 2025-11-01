@@ -8,8 +8,20 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 from typing import Optional
 
-from .config import AppConfig
-from .excel_manager import ExcelStructureError, append_time_entry, load_reference_data
+if __package__ in {None, ""}:  # pragma: no cover - runtime shim for bundled execution
+    try:
+        from timesheet_app.config import AppConfig
+        from timesheet_app.excel_manager import (
+            ExcelStructureError,
+            append_time_entry,
+            load_reference_data,
+        )
+    except ModuleNotFoundError:  # Running as a loose script without installation
+        from config import AppConfig
+        from excel_manager import ExcelStructureError, append_time_entry, load_reference_data
+else:  # Standard package import path
+    from .config import AppConfig
+    from .excel_manager import ExcelStructureError, append_time_entry, load_reference_data
 
 
 class TimeTrackerApp(tk.Tk):

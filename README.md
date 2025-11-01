@@ -27,7 +27,14 @@
    ```bash
    pip install -r requirements.txt
    ```
-4. Запустите приложение:
+4. Запустите приложение. Самый простой способ — воспользоваться вспомогательным
+   скриптом, который автоматически добавляет каталог `src` в `PYTHONPATH`:
+   ```bash
+   python run_timesheet.py
+   ```
+   Если вы предпочитаете запускать через модуль, сначала убедитесь, что
+   каталог `src` доступен Python (например, `set PYTHONPATH=%CD%\src` в этой
+   консоли), а затем выполните:
    ```bash
    python -m timesheet_app
    ```
@@ -36,15 +43,17 @@
 
 Для сборки автономного `.exe` используется [PyInstaller](https://pyinstaller.org/).
 
-1. Установите PyInstaller:
+1. Установите PyInstaller (команда выполняется из активированного виртуального окружения):
    ```bash
-   pip install pyinstaller
+   python -m pip install --upgrade pip
+   python -m pip install pyinstaller
    ```
-2. Выполните команду сборки:
+2. Выполните команду сборки. Использование `python -m PyInstaller` гарантирует запуск даже если папка `Scripts` не добавилась в `PATH`:
    ```bash
-   pyinstaller --noconfirm --onefile --name TimesheetTimer --windowed src/timesheet_app/app.py
+   python -m PyInstaller --noconfirm --onefile --name TimesheetTimer --windowed src/timesheet_app/app.py
    ```
-3. Готовый файл `TimesheetTimer.exe` будет находиться в каталоге `dist`.
+3. Если PowerShell по-прежнему сообщает «Имя "pyinstaller" не распознано», убедитесь, что виртуальное окружение активно (`.venv\Scripts\Activate.ps1`). Затем повторите команды выше.
+4. Готовый файл `TimesheetTimer.exe` будет находиться в каталоге `dist`.
 
 ## Создание установщика
 
@@ -69,6 +78,7 @@
 ```
 Timesheet/
 ├── README.md
+├── run_timesheet.py
 ├── requirements.txt
 ├── src/
 │   └── timesheet_app/
