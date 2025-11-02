@@ -207,8 +207,17 @@ class TimeTrackerApp(tk.Tk):
         except tk.TclError:
             pass
 
-        self.option_add("*Font", "Proxima Nova 11")
-        self.option_add("*Menu.font", "Proxima Nova 11")
+        try:
+            default_font = font.nametofont("TkDefaultFont")
+            default_font.configure(family="Proxima Nova", size=11)
+        except tk.TclError:
+            pass
+
+        try:
+            menu_font = font.nametofont("TkMenuFont")
+            menu_font.configure(family="Proxima Nova", size=11)
+        except tk.TclError:
+            pass
 
         style.configure("TFrame", background="#f5f5f5")
         style.configure("Timesheet.Label", font=("Proxima Nova", 11), foreground="#1f1f1f", background="#f5f5f5")
