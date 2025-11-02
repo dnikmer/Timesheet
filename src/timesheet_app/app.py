@@ -35,7 +35,7 @@ class MacIconButton(tk.Canvas):
         command: Callable[[], None],
         icon: str,
         palette: dict[str, str],
-        diameter: int = 52,
+        diameter: int = 48,
     ) -> None:
         super().__init__(
             master,
@@ -85,12 +85,14 @@ class MacIconButton(tk.Canvas):
     def _redraw(self) -> None:
         self.delete("all")
         self.configure(background=self._palette["panel_bg"])
-        radius = self._diameter - 6
+        radius = self._diameter - 8
         offset = (self._diameter - radius) // 2
 
         base = self._palette["toolbar_base"]
         hover = self._palette["toolbar_hover"]
         active = self._palette["toolbar_active"]
+        stroke = self._palette["toolbar_outline"]
+        highlight = self._palette["toolbar_highlight"]
 
         fill = base
         if self._pressed:
@@ -104,12 +106,23 @@ class MacIconButton(tk.Canvas):
             offset + radius,
             offset + radius,
             fill=fill,
+            outline=stroke,
+            width=1,
+        )
+
+        # Subtle highlight
+        self.create_oval(
+            offset + 2,
+            offset + 2,
+            offset + radius - 2,
+            offset + radius // 2,
+            fill=highlight,
             outline="",
         )
 
         icon_color = self._palette["accent"]
         center = self._diameter // 2
-        glyph_size = max(10, radius - 22)
+        glyph_size = max(10, radius - 20)
 
         if self._icon == "play":
             self.create_polygon(
@@ -185,6 +198,7 @@ class TimeTrackerApp(tk.Tk):
 
         self.style = ttk.Style(self)
         self._palette: dict[str, str] = {}
+        self.button_diameter = 48
 
         self._setup_fonts()
         self._configure_styles()
@@ -265,19 +279,19 @@ class TimeTrackerApp(tk.Tk):
 
         panel = ttk.Frame(background, style="Mac.Panel.TFrame", padding=(0, 12, 0, 20))
         panel.pack(fill=tk.BOTH, expand=True, padx=40, pady=(0, 32))
-        panel.columnconfigure(1, weight=1)
+        panel.columnconfigure(0, weight=1)
         self._content_panel = panel
 
         ttk.Label(panel, text="Учет рабочего времени", style="Mac.Header.TLabel").grid(
-            row=0, column=0, columnspan=2, sticky="w", padx=32, pady=(28, 6)
+            row=0, column=0, sticky="w", padx=32, pady=(28, 6)
         )
         ttk.Separator(panel, orient=tk.HORIZONTAL, style="Mac.Separator.TSeparator").grid(
-            row=1, column=0, columnspan=2, sticky="ew", padx=32, pady=(0, 18)
+            row=1, column=0, sticky="ew", padx=32, pady=(0, 18)
         )
 
         self.project_var.set("Выберите проект")
-        ttk.Label(panel, text="Проект", style="Mac.TLabel").grid(
-            row=2, column=0, sticky="w", padx=(32, 12), pady=(4, 12)
+        ttk.Label(panel, text="Проект", style="Mac.FieldLabel.TLabel").grid(
+            row=2, column=0, sticky="w", padx=32, pady=(4, 4)
         )
         self.project_menu = ttk.OptionMenu(
             panel,
@@ -285,12 +299,12 @@ class TimeTrackerApp(tk.Tk):
             self.project_var.get(),
         )
         self.project_menu.configure(style="Mac.OptionMenu.TMenubutton", width=24)
-        self.project_menu.grid(row=2, column=1, sticky="ew", padx=(0, 32), pady=(4, 12))
+        self.project_menu.grid(row=3, column=0, sticky="ew", padx=32, pady=(0, 12))
         self._initialise_menu(self.project_menu)
 
         self.work_type_var.set("Выберите вид работы")
-        ttk.Label(panel, text="Вид работы", style="Mac.TLabel").grid(
-            row=3, column=0, sticky="w", padx=(32, 12), pady=(0, 12)
+        ttk.Label(panel, text="Вид работы", style="Mac.FieldLabel.TLabel").grid(
+            row=4, column=0, sticky="w", padx=32, pady=(0, 4)
         )
         self.work_menu = ttk.OptionMenu(
             panel,
@@ -298,10 +312,10 @@ class TimeTrackerApp(tk.Tk):
             self.work_type_var.get(),
         )
         self.work_menu.configure(style="Mac.OptionMenu.TMenubutton", width=24)
-        self.work_menu.grid(row=3, column=1, sticky="ew", padx=(0, 32), pady=(0, 18))
+        self.work_menu.grid(row=5, column=0, sticky="ew", padx=32, pady=(0, 18))
         self._initialise_menu(self.work_menu)
 
-        panel.rowconfigure(4, weight=1)
+        panel.rowconfigure(6, weight=1)
 
         self.timer_label = ttk.Label(
             panel,
@@ -309,16 +323,17 @@ class TimeTrackerApp(tk.Tk):
             anchor=tk.CENTER,
             style="Mac.Timer.TLabel",
         )
-        self.timer_label.grid(row=4, column=0, columnspan=2, sticky="nsew", padx=32, pady=(10, 18))
+        self.timer_label.grid(row=6, column=0, sticky="nsew", padx=32, pady=(6, 18))
 
         buttons_frame = ttk.Frame(panel, style="Mac.Section.TFrame")
-        buttons_frame.grid(row=5, column=0, columnspan=2, pady=(0, 28))
+        buttons_frame.grid(row=7, column=0, pady=(0, 28))
 
         self.play_button = MacIconButton(
             buttons_frame,
             command=self.start_timer,
             icon="play",
             palette=self._palette,
+            diameter=self.button_diameter,
         )
         self.play_button.grid(row=0, column=0, padx=10)
 
@@ -327,6 +342,7 @@ class TimeTrackerApp(tk.Tk):
             command=self.pause_timer,
             icon="pause",
             palette=self._palette,
+            diameter=self.button_diameter,
         )
         self.pause_button.grid(row=0, column=1, padx=10)
 
@@ -335,6 +351,7 @@ class TimeTrackerApp(tk.Tk):
             command=self.stop_timer,
             icon="stop",
             palette=self._palette,
+            diameter=self.button_diameter,
         )
         self.stop_button.grid(row=0, column=2, padx=10)
 
@@ -366,8 +383,11 @@ class TimeTrackerApp(tk.Tk):
         display_family = pick_font(("SF Pro Display", "SF Pro Text", "Helvetica Neue", "Helvetica", "Arial"))
 
         self.base_font = tkfont.Font(family=primary_family, size=13)
-        self.small_font = tkfont.Font(family=primary_family, size=11)
-        self.timer_font = tkfont.Font(family=display_family, size=44, weight="bold")
+        self.timer_font = tkfont.Font(
+            family=display_family,
+            size=max(28, int(self.button_diameter * 0.9)),
+            weight="bold",
+        )
 
         self.option_add("*Font", self.base_font)
         self.option_add("*Menu.font", self.base_font)
@@ -383,9 +403,14 @@ class TimeTrackerApp(tk.Tk):
             "muted": "#636366",
             "border": "#c7c7cc",
             "status_bg": "#d1d1d6",
+            "field_bg": "#ffffff",
+            "field_border": "#d0d0d5",
+            "field_focus": "#5e5ce6",
             "toolbar_base": "#ffffff",
-            "toolbar_hover": "#f0f0f5",
-            "toolbar_active": "#d8d8de",
+            "toolbar_hover": "#f7f7f9",
+            "toolbar_active": "#e2e2e8",
+            "toolbar_outline": "#c7c7cc",
+            "toolbar_highlight": "#ffffff",
         }
         self._palette = palette
 
@@ -402,8 +427,19 @@ class TimeTrackerApp(tk.Tk):
         )
         self.style.configure("Mac.Section.TFrame", background=palette["panel_bg"])
         self.style.configure("Mac.TLabel", background=palette["panel_bg"], foreground=palette["text"], font=self.base_font)
-        self.style.configure("Mac.WindowTitle.TLabel", background=palette["mac_bg"], foreground=palette["muted"], font=self.small_font)
-        self.style.configure("Mac.Header.TLabel", background=palette["panel_bg"], foreground=palette["muted"], font=self.small_font)
+        self.style.configure("Mac.FieldLabel.TLabel", background=palette["panel_bg"], foreground=palette["muted"], font=self.base_font)
+        self.style.configure(
+            "Mac.WindowTitle.TLabel",
+            background=palette["mac_bg"],
+            foreground=palette["muted"],
+            font=self.base_font,
+        )
+        self.style.configure(
+            "Mac.Header.TLabel",
+            background=palette["panel_bg"],
+            foreground=palette["text"],
+            font=self.base_font,
+        )
         self.style.configure("Mac.Timer.TLabel", background=palette["panel_bg"], foreground=palette["accent"], font=self.timer_font)
         self.style.layout("Mac.Separator.TSeparator", [("Separator.separator", {"sticky": "we"})])
         self.style.configure("Mac.Separator.TSeparator", background=palette["border"])
@@ -434,22 +470,22 @@ class TimeTrackerApp(tk.Tk):
         )
         self.style.configure(
             option_style,
-            background=palette["panel_bg"],
+            background=palette["field_bg"],
             foreground=palette["text"],
             font=self.base_font,
             borderwidth=1,
-            bordercolor=palette["border"],
+            bordercolor=palette["field_border"],
             relief="flat",
-            padding=(18, 8, 28, 8),
+            padding=(18, 10, 30, 10),
             arrowcolor=palette["muted"],
-            arrowsize=14,
+            arrowsize=12,
         )
         self.style.map(
             option_style,
-            background=[("active", "#ebecf0"), ("pressed", "#dfe0e6")],
+            background=[("active", "#f2f2f7"), ("pressed", "#e9e9ef")],
             foreground=[("disabled", palette["muted"])],
             arrowcolor=[("active", palette["text"])],
-            bordercolor=[("focus", palette["accent"]), ("active", palette["border"])],
+            bordercolor=[("focus", palette["field_focus"]), ("active", palette["field_border"])],
         )
 
         self.style.configure(
@@ -462,7 +498,7 @@ class TimeTrackerApp(tk.Tk):
             "Mac.Status.TLabel",
             background=palette["status_bg"],
             foreground=palette["text"],
-            font=self.small_font,
+            font=self.base_font,
         )
 
     def _initialise_menu(self, option: ttk.OptionMenu) -> None:
