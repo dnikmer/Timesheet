@@ -31,7 +31,7 @@ class DropdownField(ttk.Frame):
     def __init__(self, parent: tk.Widget, label_text: str, variable: tk.StringVar) -> None:
         super().__init__(parent)
         self.variable = variable
-        self._options: list[str] = []
+        self._choices: list[str] = []
         try:
             self._menu_font = font.Font(family="Proxima Nova", size=11)
         except tk.TclError:
@@ -49,7 +49,7 @@ class DropdownField(ttk.Frame):
     def set_options(self, options: list[str], *, selected: Optional[str] = None) -> None:
         """Populate the dropdown with the provided options."""
 
-        self._options = options[:]
+        self._choices = options[:]
         menu = self.option_menu["menu"]
         menu.delete(0, "end")
 
@@ -74,11 +74,11 @@ class DropdownField(ttk.Frame):
     def refresh_width(self) -> None:
         """Refresh the visible width based on the longest option."""
 
-        if not self._options:
+        if not self._choices:
             self.option_menu.configure(width=20)
             return
 
-        max_pixels = max(self._menu_font.measure(item) for item in self._options)
+        max_pixels = max(self._menu_font.measure(item) for item in self._choices)
         average_char = max(self._menu_font.measure("0"), 1)
         width_chars = max(20, min(int(math.ceil((max_pixels + 24) / average_char)), 64))
         self.option_menu.configure(width=width_chars)
@@ -86,9 +86,9 @@ class DropdownField(ttk.Frame):
     def measure_longest_option(self) -> int:
         """Return the pixel width of the longest option."""
 
-        if not self._options:
+        if not self._choices:
             return 0
-        return max(self._menu_font.measure(item) for item in self._options)
+        return max(self._menu_font.measure(item) for item in self._choices)
 
 
 class IconButton(ttk.Frame):
