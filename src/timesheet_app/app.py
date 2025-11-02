@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 import tkinter as tk
 from datetime import datetime
@@ -24,8 +25,74 @@ else:  # Standard package import path
     from .excel_manager import ExcelStructureError, append_time_entry, load_reference_data
 
 
+class DropdownField(ttk.Frame):
+    """Labeled dropdown field that mimics a modern select control."""
+
+    def __init__(self, parent: tk.Widget, label_text: str, variable: tk.StringVar) -> None:
+        super().__init__(parent)
+        self.variable = variable
+        self._options: list[str] = []
+        try:
+            self._menu_font = font.Font(family="Proxima Nova", size=11)
+        except tk.TclError:
+            self._menu_font = font.nametofont("TkMenuFont")
+            self._menu_font.configure(family="Proxima Nova", size=11)
+
+        self.label = ttk.Label(self, text=label_text, style="Timesheet.Label")
+        self.label.pack(anchor=tk.W, pady=(0, 4))
+
+        self.option_menu = ttk.OptionMenu(self, variable, variable.get())
+        self.option_menu.configure(style="Timesheet.OptionMenu.TMenubutton", width=20)
+        self.option_menu.pack(fill=tk.X)
+        self.option_menu["menu"].configure(font=self._menu_font)
+
+    def set_options(self, options: list[str], *, selected: Optional[str] = None) -> None:
+        """Populate the dropdown with the provided options."""
+
+        self._options = options[:]
+        menu = self.option_menu["menu"]
+        menu.delete(0, "end")
+
+        if options:
+            for option in options:
+                menu.add_command(label=option, command=lambda value=option: self.variable.set(value))
+
+            if selected in options:
+                self.variable.set(selected)
+            elif self.variable.get() in options:
+                # Keep the previously selected value.
+                pass
+            else:
+                self.variable.set(options[0])
+        else:
+            placeholder = "Нет данных"
+            menu.add_command(label=placeholder, state="disabled")
+            self.variable.set("")
+
+        self.refresh_width()
+
+    def refresh_width(self) -> None:
+        """Refresh the visible width based on the longest option."""
+
+        if not self._options:
+            self.option_menu.configure(width=20)
+            return
+
+        max_pixels = max(self._menu_font.measure(item) for item in self._options)
+        average_char = max(self._menu_font.measure("0"), 1)
+        width_chars = max(20, min(int(math.ceil((max_pixels + 24) / average_char)), 64))
+        self.option_menu.configure(width=width_chars)
+
+    def measure_longest_option(self) -> int:
+        """Return the pixel width of the longest option."""
+
+        if not self._options:
+            return 0
+        return max(self._menu_font.measure(item) for item in self._options)
+
+
 class IconButton(ttk.Frame):
-    """Canvas-based icon button with square outline and simple glyph."""
+    """Canvas-based icon button with a crisp square outline and glyph."""
 
     def __init__(self, parent: tk.Widget, icon: str, command: Optional[Callable[[], None]]) -> None:
         super().__init__(parent)
@@ -48,8 +115,8 @@ class IconButton(ttk.Frame):
                     background = style.lookup(parent.winfo_class(), "background", default=background)
         self._canvas = tk.Canvas(
             self,
-            width=54,
-            height=54,
+            width=60,
+            height=60,
             highlightthickness=0,
             borderwidth=0,
             background=background,
@@ -63,17 +130,17 @@ class IconButton(ttk.Frame):
 
     def _draw_icon(self, hover: bool = False) -> None:
         self._canvas.delete("all")
-        base_outline = "#222" if not hover else "#111"
-        fill_color = "#fafafa" if not hover else "#f0f0f0"
-        self._canvas.create_rectangle(8, 8, 46, 46, outline=base_outline, width=2, fill=fill_color)
-        glyph_color = "#222"
+        outline = "#1c1c1c" if not hover else "#000000"
+        fill_color = "#ffffff" if not hover else "#f2f2f2"
+        self._canvas.create_rectangle(10, 10, 50, 50, outline=outline, width=3, fill=fill_color)
+        glyph_color = "#1c1c1c"
         if self.icon == "play":
-            self._canvas.create_polygon(23, 18, 23, 38, 38, 28, fill=glyph_color, outline=glyph_color)
+            self._canvas.create_polygon(28, 22, 28, 38, 42, 30, fill=glyph_color, outline=glyph_color)
         elif self.icon == "pause":
-            self._canvas.create_rectangle(20, 18, 26, 38, fill=glyph_color, outline=glyph_color)
-            self._canvas.create_rectangle(30, 18, 36, 38, fill=glyph_color, outline=glyph_color)
+            self._canvas.create_rectangle(24, 22, 30, 38, fill=glyph_color, outline=glyph_color)
+            self._canvas.create_rectangle(32, 22, 38, 38, fill=glyph_color, outline=glyph_color)
         elif self.icon == "stop":
-            self._canvas.create_rectangle(20, 18, 36, 34, fill=glyph_color, outline=glyph_color)
+            self._canvas.create_rectangle(24, 24, 38, 38, fill=glyph_color, outline=glyph_color)
 
     def _on_click(self, _event: tk.Event) -> None:  # type: ignore[override]
         if callable(self.command):
@@ -95,6 +162,7 @@ class TimeTrackerApp(tk.Tk):
         self.geometry("440x300")
         self.minsize(420, 280)
         self.resizable(True, True)
+        self.configure(background="#f5f5f5")
 
         self.config_manager = AppConfig.load()
         self.projects: list[str] = []
@@ -110,6 +178,7 @@ class TimeTrackerApp(tk.Tk):
         self.timer_var = tk.StringVar(value="00:00:00")
         self.status_var = tk.StringVar()
 
+        self._configure_styles()
         self._build_menu()
         self._build_layout()
         self._refresh_status()
@@ -129,6 +198,44 @@ class TimeTrackerApp(tk.Tk):
     # ------------------------------------------------------------------
     # UI construction helpers
     # ------------------------------------------------------------------
+    def _configure_styles(self) -> None:
+        """Configure ttk styles and default fonts for the app."""
+
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        self.option_add("*Font", "Proxima Nova 11")
+        self.option_add("*Menu.font", "Proxima Nova 11")
+
+        style.configure("TFrame", background="#f5f5f5")
+        style.configure("Timesheet.Label", font=("Proxima Nova", 11), foreground="#1f1f1f", background="#f5f5f5")
+        style.configure("Timesheet.Timer.TLabel", font=("Proxima Nova", 32, "bold"), foreground="#1f1f1f", background="#f5f5f5")
+        style.configure(
+            "Timesheet.OptionMenu.TMenubutton",
+            font=("Proxima Nova", 11),
+            padding=(14, 8),
+            relief="flat",
+            borderwidth=1,
+            background="#ffffff",
+            foreground="#1f1f1f",
+            bordercolor="#7c3aed",
+        )
+        style.map(
+            "Timesheet.OptionMenu.TMenubutton",
+            background=[("active", "#f4f0ff"), ("pressed", "#ede7ff")],
+            bordercolor=[("focus", "#7c3aed"), ("active", "#7c3aed")],
+            foreground=[("disabled", "#9f9f9f")],
+        )
+        style.configure(
+            "Timesheet.Status.TLabel",
+            font=("Proxima Nova", 11),
+            foreground="#555555",
+            background="#f5f5f5",
+        )
+
     def _build_menu(self) -> None:
         menu_bar = tk.Menu(self)
 
@@ -144,25 +251,23 @@ class TimeTrackerApp(tk.Tk):
     def _build_layout(self) -> None:
         padding = {"padx": 16, "pady": 8}
 
-        container = ttk.Frame(self)
+        container = ttk.Frame(self, style="TFrame")
         container.pack(fill=tk.BOTH, expand=True, **padding)
 
-        ttk.Label(container, text="Проект:").grid(row=0, column=0, columnspan=2, sticky=tk.W)
-        self.project_combo = ttk.Combobox(container, textvariable=self.project_var, state="readonly")
-        self.project_combo.grid(row=1, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 8))
+        self.project_field = DropdownField(container, "Проект", self.project_var)
+        self.project_field.grid(row=0, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 12))
 
-        ttk.Label(container, text="Вид работы:").grid(row=2, column=0, columnspan=2, sticky=tk.W)
-        self.work_combo = ttk.Combobox(container, textvariable=self.work_type_var, state="readonly")
-        self.work_combo.grid(row=3, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 12))
+        self.work_field = DropdownField(container, "Вид работы", self.work_type_var)
+        self.work_field.grid(row=1, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 16))
 
         container.columnconfigure(0, weight=1)
         container.columnconfigure(1, weight=1)
 
-        timer_label = ttk.Label(container, textvariable=self.timer_var, font=("Segoe UI", 32, "bold"))
-        timer_label.grid(row=4, column=0, columnspan=2, pady=(8, 12))
+        timer_label = ttk.Label(container, textvariable=self.timer_var, style="Timesheet.Timer.TLabel")
+        timer_label.grid(row=2, column=0, columnspan=2, pady=(8, 12))
 
-        buttons_frame = ttk.Frame(container)
-        buttons_frame.grid(row=5, column=0, columnspan=2, pady=4)
+        buttons_frame = ttk.Frame(container, style="TFrame")
+        buttons_frame.grid(row=3, column=0, columnspan=2, pady=4)
 
         self._start_button = IconButton(buttons_frame, "play", command=self.start_timer)
         self._start_button.grid(row=0, column=0, padx=6)
@@ -171,16 +276,17 @@ class TimeTrackerApp(tk.Tk):
         self._stop_button = IconButton(buttons_frame, "stop", command=self.stop_timer)
         self._stop_button.grid(row=0, column=2, padx=6)
 
-        container.rowconfigure(6, weight=1)
+        container.rowconfigure(4, weight=1)
 
         status_label = ttk.Label(
             container,
             textvariable=self.status_var,
-            foreground="#555",
             anchor=tk.W,
             wraplength=600,
+            style="Timesheet.Status.TLabel",
         )
-        status_label.grid(row=7, column=0, columnspan=2, sticky=(tk.W + tk.E + tk.S), pady=(12, 0))
+        status_label.grid(row=5, column=0, columnspan=2, sticky=(tk.W + tk.E + tk.S), pady=(12, 0))
+        self._status_label = status_label
 
     # ------------------------------------------------------------------
     # Excel helpers
@@ -210,22 +316,22 @@ class TimeTrackerApp(tk.Tk):
             raise ExcelStructureError(
                 "В листе 'Справочник' должны быть заполнены столбцы с проектами и видами работ."
             )
-        self.projects = projects
-        self.work_types = work_types
-        self.project_combo.configure(values=self.projects)
-        self.work_combo.configure(values=self.work_types)
-
         current_project = self.project_var.get()
         current_work_type = self.work_type_var.get()
 
+        self.projects = projects
+        self.work_types = work_types
+        self.project_field.set_options(self.projects, selected=current_project)
+        self.work_field.set_options(self.work_types, selected=current_work_type)
+
         if current_project in self.projects:
             self.project_var.set(current_project)
-        else:
+        elif self.projects:
             self.project_var.set(self.projects[0])
 
         if current_work_type in self.work_types:
             self.work_type_var.set(current_work_type)
-        else:
+        elif self.work_types:
             self.work_type_var.set(self.work_types[0])
         self._refresh_status()
         self._adjust_layout_for_content()
@@ -243,27 +349,20 @@ class TimeTrackerApp(tk.Tk):
             messagebox.showinfo("Текущий файл", "Файл Excel не выбран")
 
     def _adjust_layout_for_content(self) -> None:
-        longest_items = self.projects + self.work_types
-        if not longest_items:
+        longest_width = max(
+            self.project_field.measure_longest_option(),
+            self.work_field.measure_longest_option(),
+        )
+        if longest_width <= 0:
             return
-        font_name = self.project_combo.cget("font") or "TkDefaultFont"
-        try:
-            default_font = font.nametofont(font_name)
-        except tk.TclError:
-            try:
-                default_font = font.nametofont("TkDefaultFont")
-            except tk.TclError:
-                default_font = font.Font(self, font=("Segoe UI", 10))
-        max_width = max(default_font.measure(item) for item in longest_items)
-        # Provide extra padding for dropdown arrow and margins
-        desired_width = max(420, min(max_width + 160, 900))
+        desired_width = max(440, min(int(longest_width + 260), 1000))
         self.update_idletasks()
         current_height = max(self.winfo_height(), 300)
         self.geometry(f"{desired_width}x{current_height}")
         self.minsize(desired_width, 280)
-        combo_width_chars = max(len(max(longest_items, key=len)) + 2, 20)
-        self.project_combo.configure(width=combo_width_chars)
-        self.work_combo.configure(width=combo_width_chars)
+        self.project_field.refresh_width()
+        self.work_field.refresh_width()
+        self._status_label.configure(wraplength=max(desired_width - 40, 200))
 
     # ------------------------------------------------------------------
     # Timer logic
