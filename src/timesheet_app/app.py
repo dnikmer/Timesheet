@@ -100,7 +100,7 @@ class TimeTrackerApp(tk.Tk):
             self.project_var,
             self.project_var.get(),
         )
-        self.project_menu.configure(style="Mac.OptionMenu")
+        self.project_menu.configure(style="Mac.OptionMenu.TMenubutton")
         self.project_menu.configure(width=24)
         self.project_menu.grid(row=0, column=1, sticky="ew", **padding)
         self._initialise_menu(self.project_menu)
@@ -112,7 +112,7 @@ class TimeTrackerApp(tk.Tk):
             self.work_type_var,
             self.work_type_var.get(),
         )
-        self.work_menu.configure(style="Mac.OptionMenu")
+        self.work_menu.configure(style="Mac.OptionMenu.TMenubutton")
         self.work_menu.configure(width=24)
         self.work_menu.grid(row=1, column=1, sticky="ew", **padding)
         self._initialise_menu(self.work_menu)
@@ -204,8 +204,9 @@ class TimeTrackerApp(tk.Tk):
         self.style.configure("Mac.TLabel", background=mac_bg, foreground=text, font=self.base_font)
         self.style.configure("Mac.Timer.TLabel", background=mac_bg, foreground=accent, font=self.timer_font)
 
+        option_style = "Mac.OptionMenu.TMenubutton"
         self.style.configure(
-            "Mac.OptionMenu",
+            option_style,
             background=panel_bg,
             foreground=text,
             font=self.base_font,
@@ -215,7 +216,7 @@ class TimeTrackerApp(tk.Tk):
             padding=(16, 6),
         )
         self.style.map(
-            "Mac.OptionMenu",
+            option_style,
             background=[("active", "#ebeaf0")],
             foreground=[("disabled", muted)],
             bordercolor=[("focus", accent)],
