@@ -7,7 +7,7 @@ import tkinter as tk
 from datetime import datetime
 from tkinter import filedialog, messagebox, ttk
 from tkinter import font as tkfont
-from typing import Optional
+from typing import Callable, Optional
 
 if __package__ in {None, ""}:  # pragma: no cover - runtime shim for bundled execution
     try:
@@ -25,6 +25,154 @@ else:  # Standard package import path
     from .excel_manager import ExcelStructureError, append_time_entry, load_reference_data
 
 
+class MacIconButton(tk.Canvas):
+    """Custom circular button mimicking macOS toolbar controls."""
+
+    def __init__(
+        self,
+        master: tk.Widget,
+        *,
+        command: Callable[[], None],
+        icon: str,
+        palette: dict[str, str],
+        diameter: int = 52,
+    ) -> None:
+        super().__init__(
+            master,
+            width=diameter,
+            height=diameter,
+            highlightthickness=0,
+            bd=0,
+            background=palette["panel_bg"],
+            cursor="hand2",
+        )
+        self._command = command
+        self._icon = icon
+        self._palette = palette
+        self._diameter = diameter
+        self._hover = False
+        self._pressed = False
+
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
+
+        self._redraw()
+
+    # ------------------------------------------------------------------
+    def _on_enter(self, _event: tk.Event) -> None:
+        self._hover = True
+        self._redraw()
+
+    def _on_leave(self, _event: tk.Event) -> None:
+        self._hover = False
+        self._pressed = False
+        self._redraw()
+
+    def _on_press(self, _event: tk.Event) -> None:
+        self._pressed = True
+        self._redraw()
+
+    def _on_release(self, _event: tk.Event) -> None:
+        was_pressed = self._pressed
+        self._pressed = False
+        self._redraw()
+        if was_pressed and callable(self._command):
+            self.after_idle(self._command)
+
+    # ------------------------------------------------------------------
+    def _redraw(self) -> None:
+        self.delete("all")
+        self.configure(background=self._palette["panel_bg"])
+        radius = self._diameter - 6
+        offset = (self._diameter - radius) // 2
+
+        base = self._palette["toolbar_base"]
+        hover = self._palette["toolbar_hover"]
+        active = self._palette["toolbar_active"]
+
+        fill = base
+        if self._pressed:
+            fill = active
+        elif self._hover:
+            fill = hover
+
+        self.create_oval(
+            offset,
+            offset,
+            offset + radius,
+            offset + radius,
+            fill=fill,
+            outline="",
+        )
+
+        icon_color = self._palette["accent"]
+        center = self._diameter // 2
+        glyph_size = max(10, radius - 22)
+
+        if self._icon == "play":
+            self.create_polygon(
+                center - glyph_size // 2,
+                center - glyph_size,
+                center - glyph_size // 2,
+                center + glyph_size,
+                center + glyph_size,
+                center,
+                fill=icon_color,
+                outline="",
+            )
+        elif self._icon == "pause":
+            bar_width = max(4, glyph_size // 2)
+            spacing = bar_width // 2
+            self._create_round_rect(
+                center - spacing - bar_width,
+                center - glyph_size,
+                center - spacing,
+                center + glyph_size,
+                radius=4,
+                fill=icon_color,
+            )
+            self._create_round_rect(
+                center + spacing,
+                center - glyph_size,
+                center + spacing + bar_width,
+                center + glyph_size,
+                radius=4,
+                fill=icon_color,
+            )
+        else:  # stop
+            side = glyph_size * 1.4
+            self._create_round_rect(
+                center - side / 2,
+                center - side / 2,
+                center + side / 2,
+                center + side / 2,
+                radius=6,
+                fill=icon_color,
+            )
+
+    # ------------------------------------------------------------------
+    def _create_round_rect(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        radius: float,
+        fill: str,
+    ) -> None:
+        """Draw a rounded rectangle on the canvas."""
+
+        self.create_arc(x1, y1, x1 + 2 * radius, y1 + 2 * radius, start=90, extent=90, fill=fill, outline="")
+        self.create_arc(x2 - 2 * radius, y1, x2, y1 + 2 * radius, start=0, extent=90, fill=fill, outline="")
+        self.create_arc(x2 - 2 * radius, y2 - 2 * radius, x2, y2, start=270, extent=90, fill=fill, outline="")
+        self.create_arc(x1, y2 - 2 * radius, x1 + 2 * radius, y2, start=180, extent=90, fill=fill, outline="")
+        self.create_rectangle(x1 + radius, y1, x2 - radius, y2, fill=fill, outline="")
+        self.create_rectangle(x1, y1 + radius, x2, y2 - radius, fill=fill, outline="")
+
+
 class TimeTrackerApp(tk.Tk):
     """Main application window."""
 
@@ -36,6 +184,7 @@ class TimeTrackerApp(tk.Tk):
         self.resizable(True, True)
 
         self.style = ttk.Style(self)
+        self._palette: dict[str, str] = {}
 
         self._setup_fonts()
         self._configure_styles()
@@ -88,74 +237,109 @@ class TimeTrackerApp(tk.Tk):
         self.config(menu=menu_bar)
 
     def _build_layout(self) -> None:
-        padding = {"padx": 18, "pady": 12}
+        chrome = ttk.Frame(self, style="Mac.Chrome.TFrame")
+        chrome.pack(fill=tk.X, side=tk.TOP, padx=26, pady=(18, 8))
 
-        content = ttk.Frame(self, style="Mac.Content.TFrame")
-        content.pack(fill=tk.BOTH, expand=True, padx=24, pady=(20, 12))
+        traffic = ttk.Frame(chrome, style="Mac.Chrome.TFrame")
+        traffic.pack(side=tk.LEFT, padx=(0, 12))
+        for color in ("#ff5f57", "#febb2e", "#28c840"):
+            dot = tk.Canvas(
+                traffic,
+                width=14,
+                height=14,
+                highlightthickness=0,
+                bd=0,
+                background=self._palette["mac_bg"],
+            )
+            dot.create_oval(2, 2, 12, 12, fill=color, outline=color)
+            dot.pack(side=tk.LEFT, padx=4)
 
-        ttk.Label(content, text="Проект:", style="Mac.TLabel").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(
+            chrome,
+            text="Timesheet Timer",
+            style="Mac.WindowTitle.TLabel",
+        ).pack(side=tk.LEFT)
+
+        background = ttk.Frame(self, style="Mac.Background.TFrame")
+        background.pack(fill=tk.BOTH, expand=True)
+
+        panel = ttk.Frame(background, style="Mac.Panel.TFrame", padding=(0, 12, 0, 20))
+        panel.pack(fill=tk.BOTH, expand=True, padx=40, pady=(0, 32))
+        panel.columnconfigure(1, weight=1)
+        self._content_panel = panel
+
+        ttk.Label(panel, text="Учет рабочего времени", style="Mac.Header.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=32, pady=(28, 6)
+        )
+        ttk.Separator(panel, orient=tk.HORIZONTAL, style="Mac.Separator.TSeparator").grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=32, pady=(0, 18)
+        )
+
         self.project_var.set("Выберите проект")
+        ttk.Label(panel, text="Проект", style="Mac.TLabel").grid(
+            row=2, column=0, sticky="w", padx=(32, 12), pady=(4, 12)
+        )
         self.project_menu = ttk.OptionMenu(
-            content,
+            panel,
             self.project_var,
             self.project_var.get(),
         )
-        self.project_menu.configure(style="Mac.OptionMenu.TMenubutton")
-        self.project_menu.configure(width=24)
-        self.project_menu.grid(row=0, column=1, sticky="ew", **padding)
+        self.project_menu.configure(style="Mac.OptionMenu.TMenubutton", width=24)
+        self.project_menu.grid(row=2, column=1, sticky="ew", padx=(0, 32), pady=(4, 12))
         self._initialise_menu(self.project_menu)
 
-        ttk.Label(content, text="Вид работы:", style="Mac.TLabel").grid(row=1, column=0, sticky=tk.W)
         self.work_type_var.set("Выберите вид работы")
+        ttk.Label(panel, text="Вид работы", style="Mac.TLabel").grid(
+            row=3, column=0, sticky="w", padx=(32, 12), pady=(0, 12)
+        )
         self.work_menu = ttk.OptionMenu(
-            content,
+            panel,
             self.work_type_var,
             self.work_type_var.get(),
         )
-        self.work_menu.configure(style="Mac.OptionMenu.TMenubutton")
-        self.work_menu.configure(width=24)
-        self.work_menu.grid(row=1, column=1, sticky="ew", **padding)
+        self.work_menu.configure(style="Mac.OptionMenu.TMenubutton", width=24)
+        self.work_menu.grid(row=3, column=1, sticky="ew", padx=(0, 32), pady=(0, 18))
         self._initialise_menu(self.work_menu)
 
-        content.columnconfigure(0, weight=0)
-        content.columnconfigure(1, weight=1)
-        content.rowconfigure(2, weight=1)
+        panel.rowconfigure(4, weight=1)
 
         self.timer_label = ttk.Label(
-            content,
+            panel,
             textvariable=self.timer_var,
             anchor=tk.CENTER,
             style="Mac.Timer.TLabel",
         )
-        self.timer_label.grid(row=2, column=0, columnspan=2, pady=(24, 18), sticky="nsew")
+        self.timer_label.grid(row=4, column=0, columnspan=2, sticky="nsew", padx=32, pady=(10, 18))
 
-        buttons_frame = ttk.Frame(content, style="Mac.Content.TFrame")
-        buttons_frame.grid(row=3, column=0, columnspan=2, pady=(0, 8))
+        buttons_frame = ttk.Frame(panel, style="Mac.Section.TFrame")
+        buttons_frame.grid(row=5, column=0, columnspan=2, pady=(0, 28))
 
-        ttk.Button(
+        self.play_button = MacIconButton(
             buttons_frame,
-            text="▶",
             command=self.start_timer,
-            width=3,
-            style="Mac.Toolbar.TButton",
-        ).grid(row=0, column=0, padx=8)
-        ttk.Button(
+            icon="play",
+            palette=self._palette,
+        )
+        self.play_button.grid(row=0, column=0, padx=10)
+
+        self.pause_button = MacIconButton(
             buttons_frame,
-            text="⏸",
             command=self.pause_timer,
-            width=3,
-            style="Mac.Toolbar.TButton",
-        ).grid(row=0, column=1, padx=8)
-        ttk.Button(
+            icon="pause",
+            palette=self._palette,
+        )
+        self.pause_button.grid(row=0, column=1, padx=10)
+
+        self.stop_button = MacIconButton(
             buttons_frame,
-            text="⏹",
             command=self.stop_timer,
-            width=3,
-            style="Mac.Toolbar.TButton",
-        ).grid(row=0, column=2, padx=8)
+            icon="stop",
+            palette=self._palette,
+        )
+        self.stop_button.grid(row=0, column=2, padx=10)
 
         for column_index in range(3):
-            buttons_frame.columnconfigure(column_index, weight=1)
+            buttons_frame.grid_columnconfigure(column_index, weight=1)
 
         status_frame = ttk.Frame(self, style="Mac.Status.TFrame")
         status_frame.pack(side=tk.BOTTOM, fill=tk.X)
@@ -166,6 +350,8 @@ class TimeTrackerApp(tk.Tk):
             anchor=tk.W,
         )
         self.status_label.pack(side=tk.LEFT, padx=18, pady=6)
+        self.bind("<Configure>", self._update_status_wrap)
+        self.after_idle(self._update_status_wrap)
 
     def _setup_fonts(self) -> None:
         available = {family for family in tkfont.families()}
@@ -189,65 +375,95 @@ class TimeTrackerApp(tk.Tk):
     def _configure_styles(self) -> None:
         self.style.theme_use("clam")
 
-        mac_bg = "#e8e8ed"
-        panel_bg = "#f5f5f7"
-        accent = "#0a84ff"
-        text = "#1c1c1e"
-        muted = "#636366"
-        border = "#c7c7cc"
-        status_bg = "#d1d1d6"
+        palette = {
+            "mac_bg": "#e8e8ed",
+            "panel_bg": "#f5f5f7",
+            "accent": "#0a84ff",
+            "text": "#1c1c1e",
+            "muted": "#636366",
+            "border": "#c7c7cc",
+            "status_bg": "#d1d1d6",
+            "toolbar_base": "#ffffff",
+            "toolbar_hover": "#f0f0f5",
+            "toolbar_active": "#d8d8de",
+        }
+        self._palette = palette
 
-        self.configure(background=mac_bg)
+        self.configure(background=palette["mac_bg"])
 
-        self.style.configure("Mac.TFrame", background=mac_bg)
-        self.style.configure("Mac.Content.TFrame", background=mac_bg)
-        self.style.configure("Mac.TLabel", background=mac_bg, foreground=text, font=self.base_font)
-        self.style.configure("Mac.Timer.TLabel", background=mac_bg, foreground=accent, font=self.timer_font)
+        self.style.configure("Mac.Background.TFrame", background=palette["mac_bg"])
+        self.style.configure("Mac.Chrome.TFrame", background=palette["mac_bg"])
+        self.style.configure(
+            "Mac.Panel.TFrame",
+            background=palette["panel_bg"],
+            borderwidth=1,
+            relief="solid",
+            bordercolor=palette["border"],
+        )
+        self.style.configure("Mac.Section.TFrame", background=palette["panel_bg"])
+        self.style.configure("Mac.TLabel", background=palette["panel_bg"], foreground=palette["text"], font=self.base_font)
+        self.style.configure("Mac.WindowTitle.TLabel", background=palette["mac_bg"], foreground=palette["muted"], font=self.small_font)
+        self.style.configure("Mac.Header.TLabel", background=palette["panel_bg"], foreground=palette["muted"], font=self.small_font)
+        self.style.configure("Mac.Timer.TLabel", background=palette["panel_bg"], foreground=palette["accent"], font=self.timer_font)
+        self.style.layout("Mac.Separator.TSeparator", [("Separator.separator", {"sticky": "we"})])
+        self.style.configure("Mac.Separator.TSeparator", background=palette["border"])
 
         option_style = "Mac.OptionMenu.TMenubutton"
+        self.style.layout(
+            option_style,
+            [
+                (
+                    "Menubutton.padding",
+                    {
+                        "sticky": "nswe",
+                        "children": [
+                            (
+                                "Menubutton.background",
+                                {
+                                    "sticky": "nswe",
+                                    "children": [
+                                        ("Menubutton.label", {"sticky": "w"}),
+                                        ("Menubutton.indicator", {"side": "right", "sticky": ""}),
+                                    ],
+                                },
+                            ),
+                        ],
+                    },
+                ),
+            ],
+        )
         self.style.configure(
             option_style,
-            background=panel_bg,
-            foreground=text,
+            background=palette["panel_bg"],
+            foreground=palette["text"],
             font=self.base_font,
             borderwidth=1,
-            bordercolor=border,
+            bordercolor=palette["border"],
             relief="flat",
-            padding=(16, 6),
+            padding=(18, 8, 28, 8),
+            arrowcolor=palette["muted"],
+            arrowsize=14,
         )
         self.style.map(
             option_style,
-            background=[("active", "#ebeaf0")],
-            foreground=[("disabled", muted)],
-            bordercolor=[("focus", accent)],
-        )
-
-        self.style.configure(
-            "Mac.Toolbar.TButton",
-            background=panel_bg,
-            foreground=text,
-            font=self.base_font,
-            borderwidth=1,
-            bordercolor=border,
-            padding=(12, 6),
-            focusthickness=2,
-            focuscolor=accent,
-        )
-        self.style.map(
-            "Mac.Toolbar.TButton",
-            background=[("pressed", "#dcdcde"), ("active", "#ebeaf0")],
-            foreground=[("disabled", muted)],
-            relief=[("pressed", "sunken"), ("!pressed", "flat")],
+            background=[("active", "#ebecf0"), ("pressed", "#dfe0e6")],
+            foreground=[("disabled", palette["muted"])],
+            arrowcolor=[("active", palette["text"])],
+            bordercolor=[("focus", palette["accent"]), ("active", palette["border"])],
         )
 
         self.style.configure(
             "Mac.Status.TFrame",
-            background=status_bg,
+            background=palette["status_bg"],
             borderwidth=1,
             relief="flat",
-            bordercolor=border,
         )
-        self.style.configure("Mac.Status.TLabel", background=status_bg, foreground=text, font=self.small_font)
+        self.style.configure(
+            "Mac.Status.TLabel",
+            background=palette["status_bg"],
+            foreground=palette["text"],
+            font=self.small_font,
+        )
 
     def _initialise_menu(self, option: ttk.OptionMenu) -> None:
         menu: tk.Menu = option["menu"]
@@ -278,6 +494,10 @@ class TimeTrackerApp(tk.Tk):
 
     def _on_selection_change(self, *_: object) -> None:
         self.after_idle(self._adjust_window_width)
+
+    def _update_status_wrap(self, _event: Optional[tk.Event] = None) -> None:
+        available_width = max(120, self.winfo_width() - 96)
+        self.status_label.configure(wraplength=available_width)
 
     # ------------------------------------------------------------------
     # Excel helpers
@@ -333,17 +553,17 @@ class TimeTrackerApp(tk.Tk):
 
         font_obj = self.base_font
         max_width = max(font_obj.measure(item) for item in all_items)
-        desired_width = max(520, min(1024, max_width + 280))
+        desired_width = max(640, min(1200, max_width + 360))
 
         char_width = max(font_obj.measure("0"), 1)
-        menu_chars = min(48, max(18, (max_width + 60) // char_width))
+        menu_chars = min(52, max(20, (max_width + 80) // char_width))
         self.project_menu.configure(width=menu_chars)
         self.work_menu.configure(width=menu_chars)
 
         self.update_idletasks()
-        current_height = max(self.winfo_height(), 320)
+        current_height = max(self.winfo_height(), 400)
         self.geometry(f"{desired_width}x{current_height}")
-        self.minsize(desired_width, 300)
+        self.minsize(desired_width, 380)
 
     # ------------------------------------------------------------------
     # Timer logic
