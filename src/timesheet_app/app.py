@@ -246,7 +246,14 @@ class TimeTrackerApp(tk.Tk):
         longest_items = self.projects + self.work_types
         if not longest_items:
             return
-        default_font = font.nametofont(self.project_combo.cget("font"))
+        font_name = self.project_combo.cget("font") or "TkDefaultFont"
+        try:
+            default_font = font.nametofont(font_name)
+        except tk.TclError:
+            try:
+                default_font = font.nametofont("TkDefaultFont")
+            except tk.TclError:
+                default_font = font.Font(self, font=("Segoe UI", 10))
         max_width = max(default_font.measure(item) for item in longest_items)
         # Provide extra padding for dropdown arrow and margins
         desired_width = max(420, min(max_width + 160, 900))
