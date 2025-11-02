@@ -31,7 +31,21 @@ class IconButton(ttk.Frame):
         super().__init__(parent)
         self.command = command
         self.icon = icon
-        background = parent.cget("background") if hasattr(parent, "cget") else "#f4f4f4"
+        background = "#f4f4f4"
+        if hasattr(parent, "cget"):
+            try:
+                background = parent.cget("background")
+            except tk.TclError:
+                style_name = ""
+                try:
+                    style_name = parent.cget("style")
+                except tk.TclError:
+                    style_name = ""
+                style = ttk.Style()
+                if style_name:
+                    background = style.lookup(style_name, "background", default=background)
+                else:
+                    background = style.lookup(parent.winfo_class(), "background", default=background)
         self._canvas = tk.Canvas(
             self,
             width=54,
