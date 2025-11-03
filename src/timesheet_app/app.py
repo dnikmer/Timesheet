@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import sys
 import time
+import os
+import subprocess
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
@@ -171,6 +173,7 @@ class TimeTrackerApp(tk.Tk):
 
         self._configure_styles()
         self._build_menu()
+        self._insert_open_current_file_menu()
         self._build_layout()
         self._refresh_status()
 
@@ -259,6 +262,38 @@ class TimeTrackerApp(tk.Tk):
         menu_bar.add_cascade(label="Файл", menu=file_menu)
 
         self.config(menu=menu_bar)
+
+    def _insert_open_current_file_menu(self) -> None:
+        """Insert 'Открыть текущий файл' into the File menu after the first item."""
+        try:
+            menubar = self.nametowidget(self["menu"])  # type: ignore[assignment]
+            submenu_name = menubar.entrycget(0, "menu")  # first cascade (Файл)
+            file_menu = self.nametowidget(submenu_name)
+            file_menu.insert_command(1, label="Открыть текущий файл", command=self._open_current_file)
+        except Exception:
+            # If menu structure differs, silently ignore.
+            pass
+
+    def _open_current_file(self) -> None:
+        path = self.config_manager.excel_path
+        if not path:
+            messagebox.showinfo("Текущий файл", "Файл Excel не выбран")
+            return
+        try:
+            if not Path(path).exists():
+                messagebox.showwarning(
+                    "Файл не найден",
+                    "Указанный файл не существует. Выберите файл Excel заново.",
+                )
+                return
+            if sys.platform.startswith("win"):
+                os.startfile(path)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception as exc:  # pylint: disable=broad-except
+            messagebox.showerror("Ошибка", f"Не удалось открыть файл:\n{exc}")
 
     def _build_layout(self) -> None:
         padding = {"padx": 16, "pady": 8}
