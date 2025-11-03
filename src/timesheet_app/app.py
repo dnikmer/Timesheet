@@ -173,7 +173,6 @@ class TimeTrackerApp(tk.Tk):
 
         self._configure_styles()
         self._build_menu()
-        self._insert_open_current_file_menu()
         self._build_layout()
         self._refresh_status()
 
@@ -257,6 +256,7 @@ class TimeTrackerApp(tk.Tk):
         file_menu = tk.Menu(menu_bar, tearoff=False)
         file_menu.add_command(label="Выбрать файл Excel", command=self._prompt_for_excel)
         file_menu.add_command(label="Текущий файл", command=self._show_current_file)
+        file_menu.insert_command(1, label="Открыть текущий файл", command=self._open_current_file)
         file_menu.add_separator()
         file_menu.add_command(label="Выход", command=self.destroy)
         menu_bar.add_cascade(label="Файл", menu=file_menu)
