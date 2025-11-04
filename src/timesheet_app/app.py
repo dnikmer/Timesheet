@@ -176,8 +176,8 @@ class TimeTrackerApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Учет рабочего времени")
-        self.geometry("440x300")
-        self.minsize(420, 280)
+        self.geometry("440x340")
+        self.minsize(420, 320)
         self.resizable(True, True)
         self.configure(background="#f5f5f5")
         # Переустановим заголовок окна корректной Unicode-строкой
@@ -460,9 +460,9 @@ class TimeTrackerApp(tk.Tk):
             return
         desired_width = max(440, min(int(longest_width + 260), 1000))
         self.update_idletasks()
-        current_height = max(self.winfo_height(), 300)
+        current_height = max(self.winfo_height(), 340)
         self.geometry(f"{desired_width}x{current_height}")
-        self.minsize(desired_width, 280)
+        self.minsize(desired_width, 320)
         self.project_field.refresh_width()
         self.work_field.refresh_width()
         self._status_label.configure(wraplength=max(desired_width - 40, 200))
