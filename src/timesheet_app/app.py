@@ -459,35 +459,42 @@ class TimeTrackerApp(tk.Tk):
         self._status_label.configure(wraplength=max(desired_width - 40, 200))
 
     def _fix_menu_labels_for_locale(self) -> None:
-        """Переименовать пункты меню на корректные Unicode‑строки.
+        """Полностью перестроить меню с корректными Unicode‑подписями.
 
-        Делается после построения меню: если исходные метки были испорчены
-        при кодировании, мы заменяем и каскады, и подпункты.
+        Это гарантированно устраняет «кракозябры» независимо от того,
+        какими строками меню было собрано ранее.
         """
         try:
-            menubar = self.nametowidget(self["menu"])  # type: ignore[assignment]
+            menu_bar = tk.Menu(self)
 
-            # 1) Файл
-            menubar.entryconfigure(0, label="\u0424\u0430\u0439\u043b")
-            file_menu_name = menubar.entrycget(0, "menu")
-            file_menu = self.nametowidget(file_menu_name)
-            # Пункты внутри «Файл» (по порядку создания)
-            file_menu.entryconfigure(0, label="\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0444\u0430\u0439\u043b Excel")
-            file_menu.entryconfigure(1, label="\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b")
-            file_menu.entryconfigure(2, label="\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b")
-            # 3 — separator
-            file_menu.entryconfigure(4, label="\u0412\u044b\u0445\u043e\u0434")
+            # Файл
+            file_menu = tk.Menu(menu_bar, tearoff=False)
+            file_menu.add_command(
+                label="\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0444\u0430\u0439\u043b Excel",
+                command=self._prompt_for_excel,
+            )
+            file_menu.add_command(
+                label="\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b",
+                command=self._open_current_file,
+            )
+            file_menu.add_command(
+                label="\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b",
+                command=self._show_current_file,
+            )
+            file_menu.add_separator()
+            file_menu.add_command(label="\u0412\u044b\u0445\u043e\u0434", command=self.destroy)
+            menu_bar.add_cascade(label="\u0424\u0430\u0439\u043b", menu=file_menu)
 
-            # 2) Помощь: безопасно переcоздать каскад с чистой меткой
-            # Сохраняем подменю, удаляем каскад и вставляем заново с новым label
-            help_menu_name = menubar.entrycget(1, "menu")
-            help_menu = self.nametowidget(help_menu_name)
-            menubar.delete(1)
-            menubar.insert_cascade(1, label="\u041f\u043e\u043c\u043e\u0449\u044c", menu=help_menu)
-            # Переименуем пункт внутри «Помощь»
-            help_menu.entryconfigure(0, label="\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel...")
+            # Помощь
+            help_menu = tk.Menu(menu_bar, tearoff=False)
+            help_menu.add_command(
+                label="\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel...",
+                command=self._show_excel_requirements,
+            )
+            menu_bar.add_cascade(label="\u041f\u043e\u043c\u043e\u0449\u044c", menu=help_menu)
+
+            self.config(menu=menu_bar)
         except Exception:
-            # Если что-то пошло не так — не падаем
             pass
 
     # ------------------------------------------------------------------
