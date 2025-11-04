@@ -52,10 +52,16 @@ class DropdownField(ttk.Frame):
         self.variable = variable
         self._choices: list[str] = []
         try:
-            self._menu_font = font.Font(family="Proxima Nova", size=9)
+            _family = "Segoe UI" if sys.platform.startswith("win") else "Arial"
+            self._menu_font = font.Font(family=_family, size=9)
         except tk.TclError:
             self._menu_font = font.nametofont("TkMenuFont")
-            self._menu_font.configure(family="Proxima Nova", size=9)
+            try:
+                _family = "Segoe UI" if sys.platform.startswith("win") else "Arial"
+                self._menu_font.configure(family=_family, size=9)
+            except tk.TclError:
+                # Оставляем системный шрифт по умолчанию
+                pass
 
         self.label = ttk.Label(self, text=label_text, style="Timesheet.Label")
         self.label.pack(anchor=tk.W, pady=(0, 4))
@@ -191,6 +197,11 @@ class TimeTrackerApp(tk.Tk):
 
         self._configure_styles()
         self._build_menu()
+        # Исправляем подписи меню на корректные русские после создания меню
+        try:
+            self._fix_menu_labels_for_locale()
+        except Exception:
+            pass
         self._build_layout()
         self._refresh_status()
 
@@ -219,34 +230,36 @@ class TimeTrackerApp(tk.Tk):
             pass
 
         try:
+            _family = "Segoe UI" if sys.platform.startswith("win") else "Arial"
             default_font = font.nametofont("TkDefaultFont")
-            default_font.configure(family="Proxima Nova", size=9)
+            default_font.configure(family=_family, size=9)
         except tk.TclError:
             pass
 
         try:
+            _family = "Segoe UI" if sys.platform.startswith("win") else "Arial"
             menu_font = font.nametofont("TkMenuFont")
-            menu_font.configure(family="Proxima Nova", size=9)
+            menu_font.configure(family=_family, size=9)
         except tk.TclError:
             pass
 
         style.configure("TFrame", background="#f5f5f5")
         style.configure("Timesheet.Label", font=("Proxima Nova", 9), foreground="#1f1f1f", background="#f5f5f5")
         style.configure("Timesheet.Timer.TLabel", font=("Proxima Nova", 32, "bold"), foreground="#1f1f1f", background="#f5f5f5")
+        # Стиль для Combobox
         style.configure(
-            "Timesheet.OptionMenu.TMenubutton",
-            font=("Proxima Nova", 9),
-            padding=(14, 2),
+            "Timesheet.TCombobox",
+            padding=(6, 2),
             relief="flat",
             borderwidth=1,
-            background="#ffffff",
             foreground="#1f1f1f",
-            bordercolor="#7c3aed",
+            fieldbackground="#ffffff",
+            background="#ffffff",
         )
         style.map(
-            "Timesheet.OptionMenu.TMenubutton",
-            background=[("active", "#f4f0ff"), ("pressed", "#ede7ff")],
-            bordercolor=[("focus", "#7c3aed"), ("active", "#7c3aed")],
+            "Timesheet.TCombobox",
+            fieldbackground=[("readonly", "#ffffff"), ("active", "#f4f0ff")],
+            background=[("active", "#f4f0ff")],
             foreground=[("disabled", "#9f9f9f")],
         )
         style.configure(
@@ -444,9 +457,45 @@ class TimeTrackerApp(tk.Tk):
         self.work_field.refresh_width()
         self._status_label.configure(wraplength=max(desired_width - 40, 200))
 
+    def _fix_menu_labels_for_locale(self) -> None:
+        """Переименовать пункты меню явными Unicode-строками.
+
+        Это обходит проблемы кодировки при применении патчей и гарантирует
+        корректное отображение кириллицы на Windows.
+        """
+        try:
+            menubar = self.nametowidget(self["menu"])  # type: ignore[assignment]
+            # Переименование каскада "Файл"
+            menubar.entryconfigure(0, label="\u0424\u0430\u0439\u043b")
+            file_menu_name = menubar.entrycget(0, "menu")
+            file_menu = self.nametowidget(file_menu_name)
+            # индексы по порядку создания в _build_menu
+            file_menu.entryconfigure(0, label="\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0444\u0430\u0439\u043b Excel")
+            file_menu.entryconfigure(1, label="\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b")
+            file_menu.entryconfigure(2, label="\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b")
+            file_menu.entryconfigure(4, label="\u0412\u044b\u0445\u043e\u0434")
+
+            # Переименование каскада "Помощь"
+            menubar.entryconfigure(1, label="\u041f\u043e\u043c\u043e\u0449\u044c")
+            help_menu_name = menubar.entrycget(1, "menu")
+            help_menu = self.nametowidget(help_menu_name)
+            help_menu.entryconfigure(0, label="\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel...")
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------
     # Timer logic
     # ------------------------------------------------------------------
+
+    # Дублирующее определение для корректного текста диалога (перекроет предыдущий метод)
+    def _show_excel_requirements(self) -> None:  # type: ignore[override]
+        msg = (
+            f"\u0424\u0430\u0439\u043b Excel \u0434\u043e\u043b\u0436\u0435\u043d \u0441\u043e\u0434\u0435\u0440\u0436\u0430\u0442\u044c \u043b\u0438\u0441\u0442 '{REFERENCE_SHEET}'.\n"
+            "\u0412 \u043d\u0451\u043c \u0434\u0432\u0430 \u0441\u0442\u043e\u043b\u0431\u0446\u0430: \u043f\u0440\u043e\u0435\u043a\u0442 \u0438 \u0432\u0438\u0434 \u0440\u0430\u0431\u043e\u0442 (\u0441\u043e 2-\u0439 \u0441\u0442\u0440\u043e\u043a\u0438).\n\n"
+            f"\u0422\u0430\u043a\u0436\u0435 \u043d\u0443\u0436\u0435\u043d \u043b\u0438\u0441\u0442 '{TIMESHEET_SHEET}', \u043a\u0443\u0434\u0430 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u044e\u0442\u0441\u044f \u0437\u0430\u043f\u0438\u0441\u0438:\n"
+            "- \u0414\u0430\u0442\u0430\n- \u041f\u0440\u043e\u0435\u043a\u0442\n- \u0412\u0438\u0434 \u0440\u0430\u0431\u043e\u0442\n- \u0414\u043b\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c (\u0444\u043e\u0440\u043c\u0430\u0442 \u0412\u0440\u0435\u043c\u044f)."
+        )
+        messagebox.showinfo("\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel", msg)
     def start_timer(self) -> None:
         if not self.config_manager.excel_path:
             messagebox.showwarning("Нет файла", "Сначала выберите Excel файл через меню 'Файл'.")
