@@ -560,21 +560,33 @@ class TimeTrackerApp(tk.Tk):
                 return
             try:
                 create_template(save_path)
-                # adopt the new file into the app
+                # 2) Откроем созданный файл для ввода данных
+                try:
+                    if sys.platform.startswith("win"):
+                        os.startfile(save_path)  # type: ignore[attr-defined]
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", save_path])
+                    else:
+                        subprocess.Popen(["xdg-open", save_path])
+                except Exception:
+                    pass
+
+                # 3) Попросим подтвердить выбор после закрытия Excel с сохранением
+                messagebox.showinfo(
+                    "\u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u0435",
+                    "\u041f\u043e\u0441\u043b\u0435 \u0432\u043d\u0435\u0441\u0435\u043d\u0438\u044f \u0434\u0430\u043d\u043d\u044b\u0445 \u0432 Excel \u0438 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f \u0444\u0430\u0439\u043b\u0430, \u0437\u0430\u043a\u0440\u043e\u0439\u0442\u0435 Excel \u0438 \u043d\u0430\u0436\u043c\u0438\u0442\u0435 OK \u0434\u043b\u044f \u0432\u044b\u0431\u043e\u0440\u0430 \u0444\u0430\u0439\u043b\u0430 \u0432 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438.",
+                )
+
+                # 4) Теперь выбираем файл в приложении и пытаемся загрузить справочники
                 self.config_manager.excel_path = save_path
                 self.config_manager.save()
                 try:
                     self._load_reference(save_path)
-                except Exception as exc:  # pylint: disable=broad-except
-                    messagebox.showerror("\u041e\u0448\u0438\u0431\u043a\u0430", f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c Excel \u0444\u0430\u0439\u043b:\n{exc}")
-                    return
-                self._refresh_status()
-                # Откроем созданный файл для ввода данных
-                try:
-                    self._open_current_file()
                 except Exception:
+                    # Пусть файл останется выбранным — пользователь может заполнить позже
                     pass
-                messagebox.showinfo("\u0413\u043e\u0442\u043e\u0432\u043e", "\u0428\u0430\u0431\u043b\u043e\u043d \u0441\u043e\u0437\u0434\u0430\u043d \u0438 \u0432\u044b\u0431\u0440\u0430\u043d.")
+                self._refresh_status()
+                messagebox.showinfo("\u0413\u043e\u0442\u043e\u0432\u043e", "\u0424\u0430\u0439\u043b \u0432\u044b\u0431\u0440\u0430\u043d \u0432 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0438.")
                 win.destroy()
             except Exception as exc:  # pylint: disable=broad-except
                 messagebox.showerror("\u041e\u0448\u0438\u0431\u043a\u0430", f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u0444\u0430\u0439\u043b:\n{exc}")
