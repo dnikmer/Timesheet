@@ -200,11 +200,16 @@ class TimeTrackerApp(tk.Tk):
         self._configure_styles()
         self._build_menu()
         # Исправляем подписи меню на корректные русские после создания меню
-        # Переименуем пункты меню уже после инициализации UI,
+        # Переименуем/перестроим пункты меню уже после инициализации UI,
         # чтобы корректно заменить метки каскадов на Unicode
         self.after(0, self._fix_menu_labels_for_locale)
         self._build_layout()
         self._refresh_status()
+        # Отобразим выбранный файл в строке состояния
+        if self.config_manager.excel_path:
+            self.status_var.set(f"\u0424\u0430\u0439\u043b: {self.config_manager.excel_path}")
+        else:
+            self.status_var.set("\u0424\u0430\u0439\u043b Excel \u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d")
 
         if self.config_manager.excel_path:
             try:
@@ -371,6 +376,8 @@ class TimeTrackerApp(tk.Tk):
         self._stop_button.grid(row=0, column=2, padx=6)
 
         container.rowconfigure(4, weight=1)
+        # Гарантируем, что строка состояния всегда видна
+        container.rowconfigure(5, minsize=24)
 
         status_label = ttk.Label(
             container,
@@ -403,6 +410,8 @@ class TimeTrackerApp(tk.Tk):
         self.config_manager.excel_path = filename
         self.config_manager.save()
         self._refresh_status()
+        # Немедленно отобразим путь к выбранному файлу в строке состояния
+        self.status_var.set(f"\u0424\u0430\u0439\u043b: {self.config_manager.excel_path}")
 
     def _load_reference(self, path: str) -> None:
         projects, work_types = load_reference_data(path)
@@ -461,8 +470,9 @@ class TimeTrackerApp(tk.Tk):
     def _fix_menu_labels_for_locale(self) -> None:
         """Полностью перестроить меню с корректными Unicode‑подписями.
 
-        Это гарантированно устраняет «кракозябры» независимо от того,
-        какими строками меню было собрано ранее.
+        Убираем подпункт «Текущий файл», как просили, оставляя:
+        Файл → Выбрать файл Excel, Открыть текущий файл, Выход
+        Помощь → Требования к Excel‑файлу
         """
         try:
             menu_bar = tk.Menu(self)
@@ -477,10 +487,6 @@ class TimeTrackerApp(tk.Tk):
                 label="\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0442\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b",
                 command=self._open_current_file,
             )
-            file_menu.add_command(
-                label="\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u0444\u0430\u0439\u043b",
-                command=self._show_current_file,
-            )
             file_menu.add_separator()
             file_menu.add_command(label="\u0412\u044b\u0445\u043e\u0434", command=self.destroy)
             menu_bar.add_cascade(label="\u0424\u0430\u0439\u043b", menu=file_menu)
@@ -488,7 +494,7 @@ class TimeTrackerApp(tk.Tk):
             # Помощь
             help_menu = tk.Menu(menu_bar, tearoff=False)
             help_menu.add_command(
-                label="\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel...",
+                label="\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel-\u0444\u0430\u0439\u043b\u0443...",
                 command=self._show_excel_requirements,
             )
             menu_bar.add_cascade(label="\u041f\u043e\u043c\u043e\u0449\u044c", menu=help_menu)
@@ -505,11 +511,11 @@ class TimeTrackerApp(tk.Tk):
     def _show_excel_requirements(self) -> None:  # type: ignore[override]
         msg = (
             f"\u0424\u0430\u0439\u043b Excel \u0434\u043e\u043b\u0436\u0435\u043d \u0441\u043e\u0434\u0435\u0440\u0436\u0430\u0442\u044c \u043b\u0438\u0441\u0442 '{REFERENCE_SHEET}'.\n"
-            "\u0412 \u043d\u0451\u043c \u0434\u0432\u0430 \u0441\u0442\u043e\u043b\u0431\u0446\u0430: \u043f\u0440\u043e\u0435\u043a\u0442 \u0438 \u0432\u0438\u0434 \u0440\u0430\u0431\u043e\u0442 (\u0441\u043e 2-\u0439 \u0441\u0442\u0440\u043e\u043a\u0438).\n\n"
+            "\u0412 \u043d\u0451\u043c \u0434\u0432\u0430 \u0441\u0442\u043e\u043b\u0431\u0446\u0430: \u041f\u0440\u043e\u0435\u043a\u0442 \u0438 \u0412\u0438\u0434 \u0440\u0430\u0431\u043e\u0442.\n\n"
             f"\u0422\u0430\u043a\u0436\u0435 \u043d\u0443\u0436\u0435\u043d \u043b\u0438\u0441\u0442 '{TIMESHEET_SHEET}', \u043a\u0443\u0434\u0430 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u044e\u0442\u0441\u044f \u0437\u0430\u043f\u0438\u0441\u0438:\n"
             "- \u0414\u0430\u0442\u0430\n- \u041f\u0440\u043e\u0435\u043a\u0442\n- \u0412\u0438\u0434 \u0440\u0430\u0431\u043e\u0442\n- \u0414\u043b\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c (\u0444\u043e\u0440\u043c\u0430\u0442 \u0412\u0440\u0435\u043c\u044f)."
         )
-        messagebox.showinfo("\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel", msg)
+        messagebox.showinfo("\u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043a Excel-\u0444\u0430\u0439\u043b\u0443", msg)
     def start_timer(self) -> None:
         if not self.config_manager.excel_path:
             messagebox.showwarning("Нет файла", "Сначала выберите Excel файл через меню 'Файл'.")
