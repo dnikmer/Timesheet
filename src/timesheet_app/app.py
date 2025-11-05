@@ -107,7 +107,10 @@ class DropdownField(ttk.Frame):
         self.combobox.pack(fill=tk.X)
         # После выбора пункта убираем выделение текста
         self.combobox.bind("<<ComboboxSelected>>", self._on_combo_selected)
-        self.combobox.bind("<FocusIn>", lambda e: self.combobox.selection_clear())
+        # Даже если пользователь просто открыл/закрыл список без изменения,
+        # Windows оставляет выделение. Уберём его отложенно и снимем фокус.
+        self.combobox.bind("<FocusIn>", self._on_focus_in)
+        self.combobox.bind("<ButtonRelease-1>", self._on_mouse_release)
 
     def set_options(self, options: list[str], *, selected: Optional[str] = None) -> None:
         """Задать список значений и выбрать начальное."""
@@ -160,6 +163,25 @@ class DropdownField(ttk.Frame):
             self.focus_set()
         except Exception:  # pragma: no cover - защита от платформенных мелочей
             pass
+
+    def _on_focus_in(self, _event: tk.Event) -> None:  # type: ignore[override]
+        """Снять выделение, если фокус попал в комбобокс без изменения значения."""
+
+        def _defocus() -> None:
+            try:
+                self.combobox.selection_clear()
+                self.combobox.icursor("end")
+                self.focus_set()
+            except Exception:
+                pass
+
+        # Отложим на следующий тик цикла событий, чтобы перебить штатное выделение.
+        self.after_idle(_defocus)
+
+    def _on_mouse_release(self, _event: tk.Event) -> None:  # type: ignore[override]
+        """После закрытия списка мышью убираем выделение и фокус."""
+
+        self.after(10, lambda: (self.combobox.selection_clear(), self.focus_set()))
 
 
 class IconButton(ttk.Frame):
