@@ -271,6 +271,9 @@ class TimeTrackerApp(tk.Tk):
         # Если данных нет — предложим выбрать файл после старта
         if not self.projects or not self.work_types:
             self.after(100, self._prompt_for_excel)
+        else:
+            # Если данные подгружены — разрешим выбор
+            self._set_inputs_enabled(True)
 
     # ------------------------- Построение UI -------------------------
     def _configure_styles(self) -> None:
@@ -429,7 +432,14 @@ class TimeTrackerApp(tk.Tk):
                 try:
                     self._load_reference(save_path)
                 except Exception:
-                    pass
+                    # Если пользователь закрыл шаблон без заполнения справочника —
+                    # очищаем текущие списки и блокируем поля, чтобы не остались
+                    # данные от предыдущего файла.
+                    self.projects = []
+                    self.work_types = []
+                    self.project_field.set_options([])
+                    self.work_field.set_options([])
+                    self._set_inputs_enabled(False)
                 self._refresh_status()
                 messagebox.showinfo("Готово", "Файл выбран в приложении.")
                 win.destroy()
@@ -506,12 +516,20 @@ class TimeTrackerApp(tk.Tk):
             self._load_reference(filename)
         except Exception as exc:  # pylint: disable=broad-except
             messagebox.showerror("Ошибка", f"Не удалось загрузить Excel файл:\n{exc}")
+            # Очищаем текущие списки и блокируем выбор, чтобы не остались старые данные
+            self.projects = []
+            self.work_types = []
+            self.project_field.set_options([])
+            self.work_field.set_options([])
+            self._set_inputs_enabled(False)
             return
 
         self.config_manager.excel_path = filename
         self.config_manager.save()
         self._refresh_status()
         self.status_var.set(f"Файл: {self.config_manager.excel_path}")
+        # После удачной загрузки разрешим выбор значений
+        self._set_inputs_enabled(True)
 
     def _load_reference(self, path: str) -> None:
         """Загрузить данные листа 'Справочник' и обновить выпадающие списки."""
@@ -541,6 +559,18 @@ class TimeTrackerApp(tk.Tk):
 
         self._refresh_status()
         self._adjust_layout_for_content()
+        # Списки подгружены — поля доступны
+        self._set_inputs_enabled(True)
+
+    def _set_inputs_enabled(self, enabled: bool) -> None:
+        """Включить/выключить поля выбора проекта и вида работ."""
+
+        state = "readonly" if enabled else "disabled"
+        try:
+            self.project_field.combobox.configure(state=state)
+            self.work_field.combobox.configure(state=state)
+        except Exception:
+            pass
 
     def _refresh_status(self) -> None:
         """Обновить строку состояния: показываем путь к файлу (или отсутствие)."""
@@ -583,6 +613,8 @@ class TimeTrackerApp(tk.Tk):
             self._start_reference = time.perf_counter() - self._elapsed_seconds
             self._timer_running = True
             self._schedule_timer_update()
+            # На время отсчёта блокируем изменение полей
+            self._set_inputs_enabled(False)
 
     def pause_timer(self) -> None:
         """Поставить таймер на паузу (не записывает в Excel)."""
@@ -622,9 +654,13 @@ class TimeTrackerApp(tk.Tk):
             )
         except Exception as exc:  # pylint: disable=broad-except
             messagebox.showerror("Ошибка", f"Не удалось записать данные в Excel:\n{exc}")
+            # Разблокируем поля, чтобы пользователь мог скорректировать выбор
+            self._set_inputs_enabled(True)
             return
 
         messagebox.showinfo("Запись добавлена", "Строка успешно записана на лист 'Учет времени'.")
+        # После успешной записи — снова разрешаем менять значения
+        self._set_inputs_enabled(True)
 
     def _schedule_timer_update(self) -> None:
         """Планировать регулярное обновление отображения счётчика."""
