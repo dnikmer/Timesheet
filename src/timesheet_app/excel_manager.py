@@ -1,4 +1,11 @@
-"""Excel helpers for the Timesheet application."""
+"""Вспомогательные функции для работы с Excel.
+
+Содержит:
+- константы имён листов;
+- загрузку справочников (проекты и виды работ);
+- добавление записи о затраченном времени;
+- создание шаблонной книги с нужными листами и заголовками.
+"""
 
 from __future__ import annotations
 
@@ -6,18 +13,21 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
-from openpyxl import load_workbook, Workbook
+from openpyxl import Workbook, load_workbook
 
 
+# Имена листов в книге Excel
 REFERENCE_SHEET = "Справочник"
 TIMESHEET_SHEET = "Учет времени"
 
 
 class ExcelStructureError(RuntimeError):
-    """Raised when the workbook structure does not match expectations."""
+    """Структура книги Excel не соответствует ожиданиям."""
 
 
 def _normalise(values: Iterable[str | None]) -> List[str]:
+    """Очистка и нормализация значений (удаляем пустые, дубликаты)."""
+
     items: List[str] = []
     for value in values:
         if value is None:
@@ -29,7 +39,7 @@ def _normalise(values: Iterable[str | None]) -> List[str]:
 
 
 def load_reference_data(path: Path | str) -> Tuple[List[str], List[str]]:
-    """Return projects and work types from the reference sheet."""
+    """Прочитать лист справочника и вернуть два списка: проекты и виды работ."""
 
     workbook_path = Path(path)
     if not workbook_path.exists():
@@ -47,7 +57,7 @@ def load_reference_data(path: Path | str) -> Tuple[List[str], List[str]]:
     projects: List[str] = []
     work_types: List[str] = []
     for idx, row in enumerate(sheet.iter_rows(values_only=True), start=1):
-        # Skip header row if present.
+        # Пропускаем возможную строку заголовков
         if idx == 1:
             continue
         project, work_type, *_ = row + (None, None)
@@ -65,7 +75,7 @@ def append_time_entry(
     elapsed_seconds: float,
     finished_at: datetime | None = None,
 ) -> None:
-    """Append a new row to the timesheet sheet with the supplied data."""
+    """Добавить строку на лист учёта времени (дата, проект, вид работ, длительность)."""
 
     workbook_path = Path(path)
     if not workbook_path.exists():
@@ -96,23 +106,21 @@ def append_time_entry(
 
 
 def create_template(path: Path | str) -> None:
-    """Create a new Excel workbook with required sheets and headers.
-
-    The workbook contains:
-    - Reference sheet with two columns: Project, Work type
-    - Timesheet sheet with columns: Date, Project, Work type, Duration
-    """
+    """Создать пустую книгу Excel с нужными листами и заголовками."""
 
     workbook_path = Path(path)
     wb = Workbook()
-    # remove default sheet for controlled order
+    # Удалим дефолтный лист, чтобы контролировать порядок
     default = wb.active
     wb.remove(default)
 
+    # Лист справочника
     ws_ref = wb.create_sheet(REFERENCE_SHEET)
-    ws_ref.append(["Проект", "Вид работ"])  # headers
+    ws_ref.append(["Проект", "Вид работ"])  # заголовки
 
+    # Лист учёта времени
     ws_ts = wb.create_sheet(TIMESHEET_SHEET)
-    ws_ts.append(["Дата", "Проект", "Вид работ", "Длительность"])  # headers
+    ws_ts.append(["Дата", "Проект", "Вид работ", "Длительность"])  # заголовки
 
     wb.save(workbook_path)
+

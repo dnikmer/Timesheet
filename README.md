@@ -1,81 +1,50 @@
-# Timesheet Timer Application
+# Timesheet Timer
 
-Приложение для Windows 11, позволяющее вести учет времени по проектам и видам работ с сохранением данных в Excel.
+Приложение для учёта рабочего времени: выбираете проект и вид работ, запускаете таймер и результат записывается в Excel.
 
-## Возможности
+## Требования к Excel‑файлу
 
-- Выбор файла Excel (формат `.xlsx`) через проводник Windows.
-- Загрузка проектов и видов работ из листа `Справочник` указанного файла.
-- Таймер с кнопками **Запуск**, **Пауза**, **Стоп**.
-- Автоматическая запись данных о выполненной работе в лист `Учет времени` с указанием даты, проекта, вида работы и продолжительности.
-- Сохранение пути к Excel-файлу между запусками.
+- Лист `Справочник` с двумя столбцами: Проект, Вид работ.
+- Лист `Учет времени` с колонками: Дата, Проект, Вид работ, Длительность (формат Excel — Время).
+- В меню «Помощь → Требования к Excel‑файлу…» можно создать шаблон книги и сразу открыть его для заполнения.
 
-## Требования к Excel-файлу
+## Быстрый старт (из исходников)
 
-- Лист `Справочник` должен содержать столбцы «Проект» и «Вид работы`. Первая строка может быть заголовком.
-- Лист `Учет времени` должен существовать и содержать как минимум столбцы: `Дата`, `Проект`, `Вид работы`, `Длительность`. Новые записи добавляются в конец листа. Длительность записывается в формате Excel `Time` (например `0:30:00` для 30 минут).
-
-## Запуск из исходников
-
-1. Установите Python 3.11 или новее.
-2. Создайте и активируйте виртуальное окружение:
+1. Установите Python 3.11+ и создайте окружение:
    ```bash
    python -m venv .venv
    .venv\\Scripts\\activate  # Windows
    ```
-3. Установите зависимости:
+2. Установите зависимости:
    ```bash
    pip install -r requirements.txt
    ```
-4. Запустите приложение. Самый простой способ — воспользоваться вспомогательным
-   скриптом, который автоматически добавляет каталог `src` в `PYTHONPATH`:
+3. Запуск приложения:
    ```bash
    python run_timesheet.py
    ```
-   Если вы предпочитаете запускать через модуль, сначала убедитесь, что
-   каталог `src` доступен Python (например, `set PYTHONPATH=%CD%\src` в этой
-   консоли), а затем выполните:
-   ```bash
-   python -m timesheet_app
-   ```
 
-## Создание исполняемого файла
+## Сборка EXE (PyInstaller)
 
-Для сборки автономного `.exe` используется [PyInstaller](https://pyinstaller.org/).
-
-1. Установите PyInstaller (команда выполняется из активированного виртуального окружения):
+1. Установите PyInstaller:
    ```bash
    python -m pip install --upgrade pip
    python -m pip install pyinstaller
    ```
-2. Выполните команду сборки. Использование `python -m PyInstaller` гарантирует запуск даже если папка `Scripts` не добавилась в `PATH`. Обратите внимание на параметр `--add-data`, который упаковывает иконки кнопок (для PowerShell/Windows используется `;` в качестве разделителя путей):
-   ```bash
-   python -m PyInstaller --noconfirm --onefile --name TimesheetTimer --windowed --add-data src/timesheet_app/assets;timesheet_app/assets src/timesheet_app/app.py
-   ```
-   Если вы запускаете команду на Linux или в WSL, замените `;` на `:`:
-   ```bash
-   python -m PyInstaller --noconfirm --onefile --name TimesheetTimer --windowed --add-data src/timesheet_app/assets:timesheet_app/assets src/timesheet_app/app.py
-   ```
-3. Если PowerShell по-прежнему сообщает «Имя "pyinstaller" не распознано», убедитесь, что виртуальное окружение активно (`.venv\Scripts\Activate.ps1`). Затем повторите команды выше.
-4. Готовый файл `TimesheetTimer.exe` будет находиться в каталоге `dist`.
+2. Выполните команду сборки. Важно: параметр `--add-data` должен поместить папку иконок в корень как `assets` (именно так ищет приложение):
+   - Windows/PowerShell (разделитель `;`):
+     ```bash
+     python -m PyInstaller --noconfirm --onefile --name TimesheetTimer --windowed --add-data src/timesheet_app/assets;assets src/timesheet_app/app.py
+     ```
+   - Linux/macOS/WSL (разделитель `:`):
+     ```bash
+     python -m PyInstaller --noconfirm --onefile --name TimesheetTimer --windowed --add-data src/timesheet_app/assets:assets src/timesheet_app/app.py
+     ```
+   Если при запуске EXE появляется ошибка вида «assets/play.png: no such file or directory», значит ресурсы были упакованы не в `assets`. Пересоберите командой выше.
 
-## Создание установщика
+## Установка (опционально)
 
-Для формирования установщика можно воспользоваться [Inno Setup](https://jrsoftware.org/isinfo.php).
-
-1. Скопируйте файл `TimesheetTimer.exe` в отдельную папку, например `installer\\app`.
-2. Отредактируйте при необходимости файл `installer\\TimesheetTimer.iss` (см. ниже) и укажите путь к собранному `.exe`.
-3. Откройте `.iss` файл в Inno Setup и соберите установщик (`Build > Compile`).
-4. В настройках установщика по умолчанию используется каталог `C:\\Program Files\\TimeSheet`.
-
-Файл сценария Inno Setup располагается в `installer/TimesheetTimer.iss` и готов к использованию.
-
-## Используемые инструменты
-
-- Python 3 (tkinter для графического интерфейса)
-- [openpyxl](https://openpyxl.readthedocs.io/) для чтения и записи Excel-файлов
-- PyInstaller (для упаковки в `.exe`)
-- Inno Setup (для создания установочного файла)
+Готовый `TimesheetTimer.exe` находится в папке `dist`. Для инсталлятора можно использовать Inno Setup (скрипт в папке `installer`).
 
 ## Структура проекта
 
@@ -86,24 +55,23 @@ Timesheet/
 ├── requirements.txt
 ├── src/
 │   └── timesheet_app/
-│       ├── __init__.py
-│       ├── __main__.py
 │       ├── app.py
-│       ├── assets/
-│       │   ├── pause.png
-│       │   ├── pause_hover.png
-│       │   ├── play.png
-│       │   ├── play_hover.png
-│       │   ├── stop.png
-│       │   └── stop_hover.png
 │       ├── config.py
-│       └── excel_manager.py
+│       ├── excel_manager.py
+│       ├── version.py
+│       └── assets/
+│           ├── play.png
+│           ├── play_hover.png
+│           ├── pause.png
+│           ├── pause_hover.png
+│           ├── stop.png
+│           └── stop_hover.png
 └── installer/
     └── TimesheetTimer.iss
 ```
 
-## Настройка Excel
+## Подсказки
 
-При первом запуске приложение попросит выбрать файл Excel. Путь сохраняется и используется при последующих запусках. Таймер можно запускать несколько раз подряд — каждая остановка добавляет новую строку в лист `Учет времени`.
+- Если файл Excel ещё не выбран, используйте «Файл → Выбрать файл Excel» или создайте шаблон через «Помощь → Требования к Excel‑файлу → Создать шаблон».
+- В строке состояния всегда отображается выбранный файл: «Файл: …».
 
-Если структура книги не соответствует требованиям, приложение покажет сообщение об ошибке, и путь к файлу можно будет выбрать снова через меню **Файл → Выбрать файл Excel**.
