@@ -584,7 +584,7 @@ class TimeTrackerApp(tk.Tk):
             try:
                 self._work_start_btn.configure(state="disabled")
                 if not self._timer_running:
-                    self._work_end_btn.configure(state="normal")
+                    self._work_end_btn.configure(state="disabled")
                 # Разрешаем запуск таймера
                 self._start_button._button.configure(state="normal")
             except Exception:
@@ -746,7 +746,7 @@ class TimeTrackerApp(tk.Tk):
         # На паузе можно завершить рабочий день
         try:
             if getattr(self, "_workday_started", False):
-                self._work_end_btn.configure(state="normal")
+                self._work_end_btn.configure(state="disabled")
         except Exception:
             pass
 
@@ -784,6 +784,11 @@ class TimeTrackerApp(tk.Tk):
         messagebox.showinfo("Запись добавлена", "Строка успешно записана на лист 'Учет времени'.")
         # После успешной записи — снова разрешаем менять значения
         self._set_inputs_enabled(True)
+        try:
+            if getattr(self, "_workday_started", False):
+                self._work_end_btn.configure(state="normal")
+        except Exception:
+            pass
 
     def _schedule_timer_update(self) -> None:
         """Планировать регулярное обновление отображения счётчика."""
@@ -823,5 +828,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
 
 
