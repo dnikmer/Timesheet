@@ -257,6 +257,7 @@ class TimeTrackerApp(tk.Tk):
         self._timer_running = False
         self._start_reference = 0.0
         self._elapsed_seconds = 0.0
+        self._workday_started = False
 
         self.project_var = tk.StringVar()
         self.work_type_var = tk.StringVar()
@@ -520,6 +521,14 @@ class TimeTrackerApp(tk.Tk):
         end_day_btn = ttk.Button(top_buttons, text="Окончание работы", command=self._on_end_workday, takefocus=False)
         start_day_btn.grid(row=0, column=0, padx=8)
         end_day_btn.grid(row=0, column=1, padx=8)
+        # Сохраняем ссылки на кнопки и задаём стартовые состояния
+        self._work_start_btn = start_day_btn
+        self._work_end_btn = end_day_btn
+        try:
+            self._work_start_btn.configure(state="normal")
+            self._work_end_btn.configure(state="disabled")
+        except Exception:
+            pass
 
         # Выпадающие списки ниже
         self.project_field = DropdownField(container, "Проект", self.project_var)
@@ -543,6 +552,12 @@ class TimeTrackerApp(tk.Tk):
         self._pause_button.grid(row=0, column=1, padx=6)
         self._stop_button = IconButton(buttons_frame, "stop", command=self.stop_timer)
         self._stop_button.grid(row=0, column=2, padx=6)
+        try:
+            if not getattr(self, "_workday_started", False):
+                # До начала рабочего дня — старт таймера недоступен
+                self._start_button._button.configure(state="disabled")
+        except Exception:
+            pass
 
         container.rowconfigure(5, weight=1)
         container.rowconfigure(6, minsize=24)  # строка состояния всегда видима
@@ -565,6 +580,15 @@ class TimeTrackerApp(tk.Tk):
             return
         try:
             date_str, time_str = workday_start(self.config_manager.excel_path)
+            self._workday_started = True
+            try:
+                self._work_start_btn.configure(state="disabled")
+                if not self._timer_running:
+                    self._work_end_btn.configure(state="normal")
+                # Разрешаем запуск таймера
+                self._start_button._button.configure(state="normal")
+            except Exception:
+                pass
             messagebox.showinfo("Начало работы", f"Сегодня {date_str} работа началась в {time_str}.")
             # Снимаем фокус с кнопки, чтобы убрать пунктирную рамку
             self.focus_set()
@@ -579,6 +603,14 @@ class TimeTrackerApp(tk.Tk):
             return
         try:
             duration_str = workday_end(self.config_manager.excel_path)
+            self._workday_started = False
+            try:
+                self._work_start_btn.configure(state="normal")
+                self._work_end_btn.configure(state="disabled")
+                # На завершённом дне — старт таймера снова недоступен до нового «Начало работы»
+                self._start_button._button.configure(state="disabled")
+            except Exception:
+                pass
             messagebox.showinfo("Рабочий день окончен", f"Рабочий день окончен! Он продлился: {duration_str}")
             # Снимаем фокус с кнопки, чтобы убрать пунктирную рамку
             self.focus_set()
@@ -711,6 +743,12 @@ class TimeTrackerApp(tk.Tk):
         if self._timer_job is not None:
             self.after_cancel(self._timer_job)
             self._timer_job = None
+        # На паузе можно завершить рабочий день
+        try:
+            if getattr(self, "_workday_started", False):
+                self._work_end_btn.configure(state="normal")
+        except Exception:
+            pass
 
     def stop_timer(self) -> None:
         """Остановить таймер и записать результат в Excel."""
@@ -759,6 +797,12 @@ class TimeTrackerApp(tk.Tk):
         if self._timer_running:
             self._elapsed_seconds = time.perf_counter() - self._start_reference
         self.timer_var.set(self._format_time(self._elapsed_seconds))
+        # Синхронизируем доступность кнопки «Окончание работы» с состоянием таймера
+        try:
+            if getattr(self, "_workday_started", False):
+                self._work_end_btn.configure(state=("disabled" if self._timer_running else "normal"))
+        except Exception:
+            pass
 
     @staticmethod
     def _format_time(seconds: float) -> str:
