@@ -48,13 +48,16 @@ if __package__ in {None, ""}:  # pragma: no cover - запуск как скри
         from version import VERSION  # type: ignore
 else:  # стандартный путь импорта пакета
     from .config import AppConfig
-    from .excel_manager import (
+from .excel_manager import (
         ExcelStructureError,
         REFERENCE_SHEET,
         TIMESHEET_SHEET,
+        WORKDAY_SHEET,
         append_time_entry,
         load_reference_data,
         create_template,
+        workday_start,
+        workday_end,
     )
     from .version import VERSION
 
@@ -486,20 +489,29 @@ class TimeTrackerApp(tk.Tk):
         container = ttk.Frame(self, style="TFrame")
         container.pack(fill=tk.BOTH, expand=True, **padding)
 
+        # Верхние кнопки: Начало/Окончание рабочего дня (по центру)
+        top_buttons = ttk.Frame(container, style="TFrame")
+        top_buttons.grid(row=0, column=0, columnspan=2, pady=(0, 8))
+        start_day_btn = ttk.Button(top_buttons, text="Начало работы", command=self._on_start_workday)
+        end_day_btn = ttk.Button(top_buttons, text="Окончание работы", command=self._on_end_workday)
+        start_day_btn.grid(row=0, column=0, padx=8)
+        end_day_btn.grid(row=0, column=1, padx=8)
+
+        # Выпадающие списки ниже
         self.project_field = DropdownField(container, "Проект", self.project_var)
-        self.project_field.grid(row=0, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 12))
+        self.project_field.grid(row=1, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 12))
 
         self.work_field = DropdownField(container, "Вид работы", self.work_type_var)
-        self.work_field.grid(row=1, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 16))
+        self.work_field.grid(row=2, column=0, columnspan=2, sticky=(tk.W + tk.E), pady=(0, 16))
 
         container.columnconfigure(0, weight=1)
         container.columnconfigure(1, weight=1)
 
         timer_label = ttk.Label(container, textvariable=self.timer_var, style="Timesheet.Timer.TLabel")
-        timer_label.grid(row=2, column=0, columnspan=2, pady=(8, 12))
+        timer_label.grid(row=3, column=0, columnspan=2, pady=(8, 12))
 
         buttons_frame = ttk.Frame(container, style="TFrame")
-        buttons_frame.grid(row=3, column=0, columnspan=2, pady=4)
+        buttons_frame.grid(row=4, column=0, columnspan=2, pady=4)
 
         self._start_button = IconButton(buttons_frame, "play", command=self.start_timer)
         self._start_button.grid(row=0, column=0, padx=6)
@@ -508,8 +520,8 @@ class TimeTrackerApp(tk.Tk):
         self._stop_button = IconButton(buttons_frame, "stop", command=self.stop_timer)
         self._stop_button.grid(row=0, column=2, padx=6)
 
-        container.rowconfigure(4, weight=1)
-        container.rowconfigure(5, minsize=24)  # строка состояния всегда видима
+        container.rowconfigure(5, weight=1)
+        container.rowconfigure(6, minsize=24)  # строка состояния всегда видима
 
         status_label = ttk.Label(
             container,
@@ -518,8 +530,32 @@ class TimeTrackerApp(tk.Tk):
             wraplength=600,
             style="Timesheet.Status.TLabel",
         )
-        status_label.grid(row=5, column=0, columnspan=2, sticky=(tk.W + tk.E + tk.S), pady=(12, 0))
+        status_label.grid(row=6, column=0, columnspan=2, sticky=(tk.W + tk.E + tk.S), pady=(12, 0))
         self._status_label = status_label
+
+    def _on_start_workday(self) -> None:
+        """Записать в книгу текущую дату и время начала работы."""
+
+        if not self.config_manager.excel_path:
+            messagebox.showwarning("Нет файла", "Сначала выберите Excel файл через меню 'Файл'.")
+            return
+        try:
+            date_str, time_str = workday_start(self.config_manager.excel_path)
+            messagebox.showinfo("Начало работы", f"Сегодня {date_str} работа началась в {time_str}.")
+        except Exception as exc:  # pylint: disable=broad-except
+            messagebox.showerror("Ошибка", f"Не удалось отметить начало рабочего дня:\n{exc}")
+
+    def _on_end_workday(self) -> None:
+        """Записать время окончания и длительность рабочего дня."""
+
+        if not self.config_manager.excel_path:
+            messagebox.showwarning("Нет файла", "Сначала выберите Excel файл через меню 'Файл'.")
+            return
+        try:
+            duration_str = workday_end(self.config_manager.excel_path)
+            messagebox.showinfo("Рабочий день окончен", f"Рабочий день окончен! Он продлился: {duration_str}")
+        except Exception as exc:  # pylint: disable=broad-except
+            messagebox.showerror("Ошибка", f"Не удалось отметить окончание рабочего дня:\n{exc}")
 
     # ------------------------- Работа с Excel -------------------------
     def _prompt_for_excel(self) -> None:
