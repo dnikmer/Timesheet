@@ -381,7 +381,10 @@ class TimeTrackerApp(tk.Tk):
             return
         try:
             self._load_reference(self.config_manager.excel_path)
-            self.status_var.set("Справочник обновлён")
+            # Всплывающее сообщение об успешном обновлении
+            messagebox.showinfo("Готово", "Справочник обновлён.")
+            # В строке состояния оставляем текущий файл
+            self._refresh_status()
         except Exception as exc:  # pylint: disable=broad-except
             messagebox.showerror("Ошибка", f"Не удалось обновить справочник:\n{exc}")
 
