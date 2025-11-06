@@ -1,4 +1,4 @@
-"""Графический интерфейс (Tkinter) для таймера учёта времени.
+﻿"""Графический интерфейс (Tkinter) для таймера учёта времени.
 
 Кратко о возможностях:
 - выбор проекта и вида работ из Excel-справочника;
@@ -30,9 +30,12 @@ if __package__ in {None, ""}:  # pragma: no cover - запуск как скри
             ExcelStructureError,
             REFERENCE_SHEET,
             TIMESHEET_SHEET,
+            WORKDAY_SHEET,
             append_time_entry,
             load_reference_data,
             create_template,
+            workday_start,
+            workday_end,
         )
         from timesheet_app.version import VERSION
     except ModuleNotFoundError:  # скрипт рядом с файлами
@@ -41,9 +44,12 @@ if __package__ in {None, ""}:  # pragma: no cover - запуск как скри
             ExcelStructureError,
             REFERENCE_SHEET,
             TIMESHEET_SHEET,
+            WORKDAY_SHEET,
             append_time_entry,
             load_reference_data,
             create_template,
+            workday_start,
+            workday_end,
         )
         from version import VERSION  # type: ignore
 else:  # стандартный путь импорта пакета
@@ -773,3 +779,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
